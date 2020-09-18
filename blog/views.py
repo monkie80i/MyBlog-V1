@@ -1,99 +1,75 @@
 from django.shortcuts import render,get_object_or_404
 from .models import Post,Comment
 from django.core.paginator import Paginator,EmptyPage,PageNotAnInteger
-from django.views.generic import ListView
 from .forms import EmailPostForm,CommentForm
 from django.core.mail import send_mail
 from taggit.models import Tag
 from django.db.models import Count
+from django.conf import settings
+
 
 # Create your views here.
-#first
-#def post_list(request):
-#	object_list = Post.published.all()
-#	paginator = Paginator(object_list,3)
-#	page = request.GET.get('page')
-#	try:
-#		posts = paginator.page(page)
-#	except PageNotAnInteger: # first page when pagenumber doesnot exist
-#		posts = paginator.page(1)
-#	except EmptyPage:
-#		#if page is out of rang
-#		posts = paginator.page(Paginator.num_pages)
-#	template = 'blog/post/list.html'
-#	return render(request,template,{'posts':posts,'page':page})
-
-#def post_detail(request,year,month,day,post):
-#	post = get_object_or_404(Post, slug=post, status='published', publish__year=year, publish__month=month,publish__day=day)
-#	template = 'blog/post/detail.html'
-#	return render(request,template,{'post':post})
-
-#class PostListView(ListView):
-#	queryset = Post.published.all()
-#	context_object_name = 'posts'
-#	template_name = 'blog/post/list.html'
-#	paginate_by = 3
-
 def post_list(request,tag_slug=None):
 	object_list = Post.published.all()
 	tag = None
+	page_name = 'home'
 
 	if tag_slug:
+		page_name = 'tag_list' 
 		tag = get_object_or_404(Tag,slug=tag_slug)
-		object_list = object_list.filter(tags__in=[tag])
+		object_list = object_list.filter(tags__in =[tag])
+
 	paginator = Paginator(object_list,3)
 	page = request.GET.get('page')
 	try:
 		posts = paginator.page(page)
-	except PageNotAnInteger: # first page when pagenumber doesnot exist
+	except PageNotAnInteger:
+		#first call
 		posts = paginator.page(1)
 	except EmptyPage:
-		#if page is out of rang
-		posts = paginator.page(Paginator.num_pages)
-	template = 'blog/post/list.html'
-	return render(request,template,{'posts':posts,'page':page,'tag':tag})
+		#last page
+		posts = paginator.page(paginator.num_pages)
+	return render(request,'blog/post/list.html',{'posts':posts,'tag':tag,'page':page_name})
+
+
+def post_detail(request,year,month,day,post):
+	post = get_object_or_404(Post,slug=post,status='published',publish__year=year,publish__month=month,publish__day=day)
+	comments = Comment.objects.filter(active=True).filter(post=post)
+	new_comment = False
+	comment_form = None
+
+	if request.user.is_authenticated:
+		if request.method == 'POST':
+			comment_form = CommentForm(data=request.POST)
+			if comment_form.is_valid():
+				new_comment = comment_form.save(commit=False)
+				new_comment.post = post
+				new_comment.user = request.user
+				new_comment.save()
+		else:
+			comment_form = CommentForm()
+	#get similar posts by tags
+	post_tag_ids = post.tags.values_list('id',flat=True)
+	similar_posts = Post.published.filter(tags__in=post_tag_ids)
+	similar_posts = similar_posts.annotate(same_tags = Count('tags')).order_by('-same_tags','-publish')[:4]
+	return render(request,'blog/post/detail.html',{'post':post,'comments':comments,'new_comment':new_comment,'form':comment_form,'similar_posts':similar_posts})
 
 def post_share(request,post_id):
-	#retrieve post by id
-	post = get_object_or_404(Post,id=post_id,status='published')
+	post =  get_object_or_404(Post,id=post_id)
 	sent = False
 
 	if request.method == 'POST':
-		#form was submitted
-		form = EmailPostForm(request.POST)
+		form = EmailPostForm(data=request.POST)
 		if form.is_valid():
-			#form field passed validation
 			cd = form.cleaned_data
+			# send mail
 			post_url = request.build_absolute_uri(post.get_absolute_url())
-			subject = '{}({}) recommends you reading {}'.format(cd['name'],cd['email'],post.title)
-			message = 'Read {} at {}\n\n{}\'s comments:{}'.format(post.title,post_url,cd['name'],cd['comments'])
-			send_mail(subject,message,'shahzan@myblog.com',[cd['to']])
+			subject = "{} would like you to check out his post:{}".format(cd['name'],post.title)
+			body = "Read {} at {}\n\n Comments by {}:{}".format(post.title,post_url,cd['name'],cd['comments'])
+			from_email = settings.EMAIL_HOST_USER
+			send_mail(subject,body,from_email,[cd['to']],fail_silently=False)
 			sent = True
 	else:
 		form = EmailPostForm()
+
 	return render(request,'blog/post/share.html',{'post':post,'form':form,'sent':sent})
-
-def post_detail(request,year,month,day,post):
-	post = get_object_or_404(Post, slug=post, status='published', publish__year=year, publish__month=month,publish__day=day)
-
-	#list of active comments for this post
-	comments = post.comments.filter(active=True)
-	new_comment = None
-	if request.method == 'POST':
-		#a comment is being posted
-		comment_form = CommentForm(data = request.POST)
-		if comment_form.is_valid():
-			#create a comment object but dont save it yet
-			new_comment = comment_form.save(commit=False)
-			#assign the current post to the comment
-			new_comment.post = post
-			#save the new comment to database
-			new_comment.save()
-	else:
-		comment_form = CommentForm()
-	template = 'blog/post/detail.html'
-	#list of similar posts
-	post_tags_ids = post.tags.values_list('id',flat=True)
-	similar_posts = Post.published.filter(tags__in=post_tags_ids).exclude(id=post.id)
-	similar_posts = similar_posts.annotate(same_tags=Count('tags')).order_by('-same_tags','-publish')[:4]
-	return render(request,template,{'post':post,'new_comment':new_comment,'comment_form':comment_form,'comments':comments,'similar_posts':similar_posts})

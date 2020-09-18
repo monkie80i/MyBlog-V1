@@ -1,31 +1,34 @@
 from django.db import models
-from django.utils import timezone
 from django.contrib.auth.models import User
+from django.utils import timezone
 from django.urls import reverse
 from taggit.managers import TaggableManager
 
-class PublishedManager(models.Manager): 
-	def get_queryset(self): # overriding the defult queryset
+
+# Create your models here.
+#managers
+class PublishedManager(models.Manager):
+	def get_queryset(self):
 		return super(PublishedManager,self).get_queryset().filter(status='published')
 
 class DraftedManager(models.Manager):
 	def get_queryset(self):
-		return super(DraftedManager,self).get_queryset().filter(status='draft')
+		return super(DraftedManager,self).get_queryset().filter(status='drafted')
 
 class Post(models.Model):
-	STATUS_CHOICES=(('draft','Draft'),('published','Published'))
+	STATUS_CHOICES = (('drafted','Drafted'),('published','Published'))
+	image = models.ImageField(upload_to='post/%Y/%m/%d/',blank=True)
 	title = models.CharField(max_length=250)
-	slug = models.SlugField(max_length = 250,unique_for_date='publish')
-	author = models.ForeignKey(User,on_delete=models.CASCADE,related_name='blog_post')
+	slug = models.SlugField(unique_for_date='publish')
 	body = models.TextField()
-	publish =models.DateTimeField(default=timezone.now) 
-	created =models.DateTimeField(auto_now_add=True)
-	updated =models.DateTimeField(auto_now=True)
-	status = models.CharField(max_length=10,choices=STATUS_CHOICES,default='draft')
-	objects = models.Manager() #default manager
-	published = PublishedManager() #our custom manager
+	author = models.ForeignKey(User,related_name='blog_post',on_delete=models.CASCADE)
+	publish = models.DateTimeField(default=timezone.now)
+	created = models.DateTimeField(auto_now_add=True)
+	updated = models.DateTimeField(auto_now=True)
+	status = models.CharField(max_length=10,choices=STATUS_CHOICES,default='Drafted')
+	objects = models.Manager()
+	published = PublishedManager()
 	drafted = DraftedManager()
-	#introducing tags
 	tags = TaggableManager()
 
 	def get_absolute_url(self):
@@ -38,17 +41,16 @@ class Post(models.Model):
 		return self.title
 
 class Comment(models.Model):
-	post = models.ForeignKey(Post,on_delete=models.CASCADE,related_name='comments')
-	name = models.CharField(max_length=80)
-	email = models.EmailField()
+	post = models.ForeignKey(Post,related_name='comments',on_delete=models.CASCADE)
+	#defautl_user = User.objects.get(username='admin')
+	user = models.ForeignKey(User,related_name='comments',on_delete=models.CASCADE)
 	body = models.TextField()
 	created = models.DateTimeField(auto_now_add=True)
 	updated = models.DateTimeField(auto_now=True)
 	active = models.BooleanField(default=True)
 
 	class Meta:
-		ordering = ('created',)
-
+		ordering = ('-created',)
+	
 	def __str__(self):
-		return 'Comment by {} on {}'.format(self.name,self.post)
-
+		return "Comment by {} on {}".format(self.user.username,self.post)

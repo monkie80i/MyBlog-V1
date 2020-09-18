@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}My blog{%endblock%}
+
+{% block content %}
+{% with request.user as user %}
+  <h1 class="mt-4">Welcome {{user.username}}</h1>
+
+  <p> You can change your <a href="{% url 'password_change'%}">password here</a> .</p>
+
+{% endwith %}
+{%endblock%}

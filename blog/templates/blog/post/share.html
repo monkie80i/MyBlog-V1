@@ -1,19 +1,25 @@
-{% extends 'blog/base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Share a post{% endblock %}
+{% block title %}{{post.title}}{%endblock%}
 
 {% block content %}
-	{% if sent %}
-		<h1>Post successfuly send</h1>
-		<p>{{post.title}} was send to {{form.cleaned_data.to}}</p>
-		<p><a href="{{post.get_absolute_url}}">Back to post</a></p>
-		<p><a href="{% url 'blog:post_list' %}">Home</a></p>
-	{% else %}
-		<h1>Send {{post.title}} by email</h1>
-		<form action="." method="post">
-			{{form.as_p}}
-			{% csrf_token %}
-			<input type="submit" value="send email">
-		</form>
-	{% endif %}
-{% endblock %}
+  <!-- Title -->
+  <h1 class="mt-4">Share post :{{post.title}}</h1>
+  <p>You can email this post by filling th following form</p>
+  <hr>
+  {% if sent %}
+    <div class="alert alert-success" role="alert">
+      the psot was sent throug mail
+    </div>
+    <a href="{{post.get_absolute_url}}" class="btn btn-primary">Back to post &rarr;</a>
+  {%else%}
+  <form action="." method="post">
+    {{form.as_p}}
+    {%csrf_token%}
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form> 
+  {% endif %}
+       
+{%endblock%}
+
+{% block footer%}{% include "footer.html" %}{% endblock %}
