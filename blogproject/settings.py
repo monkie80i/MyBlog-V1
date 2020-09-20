@@ -20,12 +20,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '-#%&k)r#x0&i%p!u_4@ob3w^z&t1!f8q7r08ozxje3xgwoqwg0'
+SECRET_KEY = os.environ.get('SECRET_KEY')
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['mysite.com','localhost','127.0.0.1']
+#ALLOWED_HOSTS = ['mysite.com','localhost','127.0.0.1']
+ALLOWED_HOSTS = ['*']
 
 SITE_ID=1
 
@@ -43,7 +45,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'django.contrib.sitemaps',
-    'sslserver',
 ]
 
 MIDDLEWARE = [
@@ -80,14 +81,25 @@ WSGI_APPLICATION = 'blogproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+#}
+
+#Production settings
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        #'OPTIONS': {'charset': 'utf8mb4'},
-        #'TEST_CHARSET': 'utf8mb4',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME'),
+        'USER':os.environ.get('DB_USERNAME') ,
+        'PASSWORD':os.environ.get('DB_PASSWORD'),
+        'HOST':os.environ.get('DB_HOST'),
+        'PORT':os.environ.get('DB_PORT')
     }
 }
+
 
 
 # Password validation
@@ -129,6 +141,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR,'static/')
 MEDIA_URL='/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR,'media/')
 
